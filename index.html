@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pancasila Solution Learning Hub - EduPancasila</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for analytics in teacher dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        garuda: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            500: '#e11d48',
+                            600: '#e11d48',
+                            700: '#be123c',
+                            800: '#9f1239',
+                            900: '#881337',
+                        },
+                        pancasila: {
+                            gold: '#D4AF37',
+                            goldDark: '#B8860B',
+                            navy: '#0F172A',
+                            emerald: '#059669',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, .font-heading { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 antialiased flex flex-col selection:bg-rose-500 selection:text-white">
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Initialization with fallback safeguards
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'pancasila-edu-app';
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                    if (user && window.initTeacherListener) {
+                        window.initTeacherListener();
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn("Firebase config not available or failed to load. Falling back to LocalStorage.", e);
+        }
+
+        window.firebaseApp = { db, auth, appId, getCurrentUser: () => currentUser };
+    </script>
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="sticky top-0 z-40 bg-slate-900 text-white shadow-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Brand Logo & Title -->
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="app.navigateTo('role-selection')">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center shadow-lg text-white font-bold text-xl">
+                        <i class="fa-solid me-0.5 fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-heading font-extrabold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-white via-slate-100 to-rose-200 bg-clip-text text-transparent">
+                                EduPancasila
+                            </span>
+                            <span class="bg-rose-500/20 text-rose-300 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-rose-500/30">
+                                SMA Kelas X
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-400 hidden sm:block">Aplikasi Pembelajaran Solusi Permasalahan Masyarakat</p>
+                    </div>
+                </div>
+
+                <!-- Right Action / Role Status -->
+                <div class="flex items-center space-x-3">
+                    <div id="studentHeaderBadge" class="hidden items-center bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg text-xs">
+                        <i class="fa-solid fa-user-graduate text-rose-400 mr-2"></i>
+                        <span id="badgeStudentName" class="font-semibold text-slate-200">Siswa</span>
+                        <span class="mx-1.5 text-slate-600">|</span>
+                        <span id="badgeStudentClass" class="text-amber-400 font-medium">X.2</span>
+                        <button onclick="app.resetStudentSession()" class="ml-2 text-slate-400 hover:text-rose-400 transition" title="Ganti Siswa">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
+                    </div>
+
+                    <div id="teacherHeaderBadge" class="hidden items-center bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-lg text-xs">
+                        <i class="fa-solid fa-chalkboard-user text-amber-400 mr-2"></i>
+                        <span class="font-semibold text-amber-300">Mode Guru</span>
+                        <button onclick="app.logoutTeacher()" class="ml-2.5 text-slate-400 hover:text-rose-400 transition" title="Keluar Guru">
+                            <i class="fa-solid fa-power-off"></i>
+                        </button>
+                    </div>
+
+                    <button onclick="app.showRoleModal()" class="text-xs bg-rose-600 hover:bg-rose-700 text-white font-medium px-3.5 py-2 rounded-lg transition duration-200 shadow-sm flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span class="hidden sm:inline">Ganti Peran</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- VIEW 1: ROLE SELECTION (LANDING PAGE) -->
+        <section id="viewRoleSelection" class="transition-all duration-300">
+            <div class="max-w-4xl mx-auto py-8 text-center">
+                <!-- Hero Banner -->
+                <div class="mb-10">
+                    <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-200 mb-4">
+                        <i class="fa-solid fa-book-bookmark"></i> Capaian Pembelajaran PPKn / Pendidikan Pancasila
+                    </span>
+                    <h1 class="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight mb-4">
+                        Pancasila Sebagai Landasan Solusi <br class="hidden sm:inline"/>Permasalahan Bermasyarakat
+                    </h1>
+                    <p class="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
+                        "Peserta didik mampu menganalisis berbagai permasalahan kehidupan bermasyarakat dengan menggunakan nilai-nilai Pancasila sebagai landasan penyelesaian masalah."
+                    </p>
+                </div>
+
+                <!-- Role Cards Selection Grid -->
+                <div class="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto text-left">
+                    <!-- Student Option -->
+                    <div onclick="app.selectRole('siswa')" class="group relative bg-white p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-xl border-2 border-slate-200 hover:border-rose-500 transition-all duration-300 cursor-pointer flex flex-col justify-between">
+                        <div>
+                            <div class="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 group-hover:bg-rose-600 group-hover:text-white transition-all">
+                                <i class="fa-solid fa-user-graduate"></i>
+                            </div>
+                            <h2 class="text-xl font-bold text-slate-900 group-hover:text-rose-600 transition mb-2">
+                                Dashboard Siswa
+                            </h2>
+                            <p class="text-xs sm:text-sm text-slate-500 mb-6 leading-relaxed">
+                                Masuk untuk mempelajari materi interaktif, analisis kasus Pancasila, dan mengerjakannya pada 10 latihan soal pilihan ganda.
+                            </p>
+                        </div>
+                        <div class="flex items-center text-rose-600 font-semibold text-sm group-hover:translate-x-1 transition">
+                            Masuk Sebagai Siswa <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </div>
+                    </div>
+
+                    <!-- Teacher Option -->
+                    <div onclick="app.selectRole('guru')" class="group relative bg-white p-6 sm:p-8 rounded-2xl shadow-sm hover:shadow-xl border-2 border-slate-200 hover:border-amber-500 transition-all duration-300 cursor-pointer flex flex-col justify-between">
+                        <div>
+                            <div class="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all">
+                                <i class="fa-solid fa-chalkboard-user"></i>
+                            </div>
+                            <h2 class="text-xl font-bold text-slate-900 group-hover:text-amber-600 transition mb-2">
+                                Dashboard Guru
+                            </h2>
+                            <p class="text-xs sm:text-sm text-slate-500 mb-6 leading-relaxed">
+                                Khusus untuk Pengajar. Login dengan kata sandi untuk memantau rekap nilai siswa kelas X.2, X.3, & X.5 serta mengelola data.
+                            </p>
+                        </div>
+                        <div class="flex items-center text-amber-600 font-semibold text-sm group-hover:translate-x-1 transition">
+                            Masuk Sebagai Guru <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 2: STUDENT REGISTRATION FORM MODAL / STEP -->
+        <section id="viewStudentRegister" class="hidden transition-all duration-300">
+            <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden my-8">
+                <div class="bg-gradient-to-r from-rose-600 to-rose-800 p-6 text-white text-center">
+                    <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fa-solid fa-id-card text-2xl text-white"></i>
+                    </div>
+                    <h2 class="text-xl font-bold">Identitas Peserta Didik</h2>
+                    <p class="text-xs text-rose-100 mt-1">Lengkapi data diri sebelum memulai pembelajaran</p>
+                </div>
+
+                <form id="studentRegisterForm" onsubmit="app.handleStudentSubmit(event)" class="p-6 space-y-5">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                            Nama Lengkap Siswa <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                <i class="fa-solid fa-user"></i>
+                            </span>
+                            <input type="text" id="inputStudentName" required placeholder="Contoh: Ahmad Rizky" 
+                                class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                            Pilih Kelas <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="studentClass" value="X.2" required class="peer sr-only">
+                                <div class="text-center py-3 rounded-xl border-2 border-slate-200 peer-checked:border-rose-600 peer-checked:bg-rose-50 peer-checked:text-rose-700 font-bold text-sm transition hover:bg-slate-50">
+                                    X.2
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="studentClass" value="X.3" required class="peer sr-only">
+                                <div class="text-center py-3 rounded-xl border-2 border-slate-200 peer-checked:border-rose-600 peer-checked:bg-rose-50 peer-checked:text-rose-700 font-bold text-sm transition hover:bg-slate-50">
+                                    X.3
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="studentClass" value="X.5" required class="peer sr-only">
+                                <div class="text-center py-3 rounded-xl border-2 border-slate-200 peer-checked:border-rose-600 peer-checked:bg-rose-50 peer-checked:text-rose-700 font-bold text-sm transition hover:bg-slate-50">
+                                    X.5
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-rose-500/25 transition duration-200 flex items-center justify-center gap-2">
+                            <span>Mulai Belajar & Kuis</span>
+                            <i class="fa-solid fa-arrow-right text-xs"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- VIEW 3: STUDENT DASHBOARD -->
+        <section id="viewStudentDashboard" class="hidden transition-all duration-300">
+            <!-- Student Sub-Navigation Tabs -->
+            <div class="flex border-b border-slate-200 mb-6 space-x-2 sm:space-x-4 overflow-x-auto custom-scrollbar pb-1">
+                <button id="tabBtnMateri" onclick="app.switchStudentTab('materi')" 
+                    class="student-tab-btn active px-4 py-2.5 text-sm font-bold border-b-2 border-rose-600 text-rose-600 flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-book-open"></i> Materi Pembelajaran
+                </button>
+                <button id="tabBtnKuis" onclick="app.switchStudentTab('kuis')" 
+                    class="student-tab-btn px-4 py-2.5 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-pen-to-square"></i> Latihan Soal (10 Nomor)
+                </button>
+                <button id="tabBtnHasil" onclick="app.switchStudentTab('hasil')" 
+                    class="student-tab-btn px-4 py-2.5 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-square-poll-vertical"></i> Hasil Saya
+                </button>
+            </div>
+
+            <!-- TAB CONTENT 1: MATERI PEMBELAJARAN INTERAKTIF -->
+            <div id="studentTabMateri" class="space-y-8">
+                <!-- Learning Goal Card -->
+                <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-rose-950 text-white rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+                    <div class="absolute right-0 top-0 bottom-0 opacity-10 flex items-center justify-center pr-8 pointer-events-none">
+                        <i class="fa-solid fa-landmark text-9xl"></i>
+                    </div>
+                    <div class="relative z-10">
+                        <span class="bg-rose-500/30 text-rose-200 border border-rose-400/30 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                            Tujuan Pembelajaran Utama
+                        </span>
+                        <h2 class="text-xl sm:text-2xl font-extrabold mt-3 mb-2 leading-snug">
+                            "Peserta didik mampu menganalisis berbagai permasalahan kehidupan bermasyarakat dengan menggunakan nilai-nilai Pancasila sebagai landasan penyelesaian masalah."
+                        </h2>
+                        <p class="text-slate-300 text-xs sm:text-sm">
+                            Pancasila bukan sekadar hafalan teks formal, melainkan **Living Ideology** (ideologi yang bekerja) yang memberikan pedoman logis dan moral untuk mengatasi persoalan riil di Indonesia.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 5 Sila & Solusi Permasalahan Interactive Section -->
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-compass text-rose-600"></i>
+                        Matriks Pemecahan Masalah Berdasarkan Nilai Pancasila
+                    </h3>
+                    <p class="text-xs text-slate-500 mb-6">Klik pada kartu Sila untuk mengeksplorasi analisis permasalahan dan solusinya.</p>
+
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <!-- Sila 1 -->
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 font-bold flex items-center justify-center text-sm">
+                                    1
+                                </span>
+                                <span class="text-[11px] bg-amber-50 text-amber-700 font-semibold px-2.5 py-0.5 rounded-full border border-amber-200">
+                                    Ketuhanan Yang Maha Esa
+                                </span>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-sm mb-2">Permasalahan: Intoleransi & Sikap Radikal</h4>
+                            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+                                Adanya ujaran kebencian antarumat beragama, diskriminasi penganut kepercayaan, dan pemaksaan kehendak beragama.
+                            </p>
+                            <div class="bg-amber-50/70 p-3 rounded-xl border border-amber-100">
+                                <span class="text-[11px] font-bold text-amber-800 block mb-1">💡 Solusi Berbasis Sila 1:</span>
+                                <p class="text-[11px] text-amber-900">
+                                    Menumbuhkan moderasi beragama, menjamin kemerdekaan beribadah, serta menghormati perbedaan keyakinan tanpa memaksakan kehendak.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Sila 2 -->
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 font-bold flex items-center justify-center text-sm">
+                                    2
+                                </span>
+                                <span class="text-[11px] bg-rose-50 text-rose-700 font-semibold px-2.5 py-0.5 rounded-full border border-rose-200">
+                                    Kemanusiaan yang Adil & Beradab
+                                </span>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-sm mb-2">Permasalahan: Perundungan & Main Hakim Sendiri</h4>
+                            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+                                Terjadinya cyberbullying, kekerasan fisik/verbal di sekolah/masyarakat, dan tindakan persekusi tanpa jalur hukum.
+                            </p>
+                            <div class="bg-rose-50/70 p-3 rounded-xl border border-rose-100">
+                                <span class="text-[11px] font-bold text-rose-800 block mb-1">💡 Solusi Berbasis Sila 2:</span>
+                                <p class="text-[11px] text-rose-900">
+                                    Menegakkan hak asasi manusia, memperlakukan setiap orang setara tanpa diskriminasi, dan mengedepankan etika kebadaban digital.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Sila 3 -->
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-sm">
+                                    3
+                                </span>
+                                <span class="text-[11px] bg-emerald-50 text-emerald-700 font-semibold px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                    Persatuan Indonesia
+                                </span>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-sm mb-2">Permasalahan: Hoaks & Disintegrasi Bangsa</h4>
+                            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+                                Penyebaran berita bohong yang mengadu domba antarsuku, agama, atau antagolongan (SARA) di media sosial.
+                            </p>
+                            <div class="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100">
+                                <span class="text-[11px] font-bold text-emerald-800 block mb-1">💡 Solusi Berbasis Sila 3:</span>
+                                <p class="text-[11px] text-emerald-900">
+                                    Mengutamakan keutuhan NKRI di atas kepentingan pribadi/golongan, saring sebelum sharing, serta meningkatkan semangat gotong royong.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Sila 4 -->
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm">
+                                    4
+                                </span>
+                                <span class="text-[11px] bg-indigo-50 text-indigo-700 font-semibold px-2.5 py-0.5 rounded-full border border-indigo-200">
+                                    Kerakyatan dipimpin Musyawarah
+                                </span>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-sm mb-2">Permasalahan: Otoriter & Konflik Keputusan</h4>
+                            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+                                Pengambilan keputusan sepihak dalam komunitas/sekolah tanpa mendengarkan pendapat warga atau anggota.
+                            </p>
+                            <div class="bg-indigo-50/70 p-3 rounded-xl border border-indigo-100">
+                                <span class="text-[11px] font-bold text-indigo-800 block mb-1">💡 Solusi Berbasis Sila 4:</span>
+                                <p class="text-[11px] text-indigo-900">
+                                    Mengutamakan musyawarah untuk mufakat, menghargai kebebasan berpendapat, dan menerima hasil keputusan bersama secara bertanggung jawab.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Sila 5 -->
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:shadow-md transition md:col-span-2 lg:col-span-2">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-sm">
+                                    5
+                                </span>
+                                <span class="text-[11px] bg-blue-50 text-blue-700 font-semibold px-2.5 py-0.5 rounded-full border border-blue-200">
+                                    Keadilan Sosial bagi Seluruh Rakyat
+                                </span>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-sm mb-2">Permasalahan: Kesenjangan Sosial & Korupsi</h4>
+                            <p class="text-xs text-slate-600 leading-relaxed mb-3">
+                                Ketimpangan akses pendidikan dan kesehatan, gaya hidup konsumtif/memamerkan kekayaan (flexing), dan tindakan koruptif.
+                            </p>
+                            <div class="bg-blue-50/70 p-3 rounded-xl border border-blue-100">
+                                <span class="text-[11px] font-bold text-blue-800 block mb-1">💡 Solusi Berbasis Sila 5:</span>
+                                <p class="text-[11px] text-blue-900">
+                                    Mengembangkan kebiasaan hemat, menghargai karya orang lain, mendukung pemerataan fasilitas, dan menjaga keseimbangan antara hak dan kewajiban.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Case Study Exploration -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-6">
+                    <h3 class="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass-chart text-amber-500"></i>
+                        Langkah Analisis Kasus Bermasyarakat (SOP Analisis Pancasila)
+                    </h3>
+                    <div class="grid sm:grid-cols-4 gap-4 text-xs">
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <span class="font-bold text-rose-600 block mb-1">1. Identifikasi Kasus</span>
+                            <p class="text-slate-600">Tentukan fakta, sumber masalah, dan pihak yang dirugikan.</p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <span class="font-bold text-amber-600 block mb-1">2. Pemetaan Nilai</span>
+                            <p class="text-slate-600">Identifikasi Sila mana yang dilanggar atau relevan.</p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <span class="font-bold text-emerald-600 block mb-1">3. Formulasi Solusi</span>
+                            <p class="text-slate-600">Rumuskan opsi tindakan yang adil, persuasif, dan inklusif.</p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <span class="font-bold text-indigo-600 block mb-1">4. Evaluasi Dampak</span>
+                            <p class="text-slate-600">Pastikan solusi menguatkan persatuan dan kedamaian.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Call to Quiz Button -->
+                <div class="text-center pt-4">
+                    <button onclick="app.switchStudentTab('kuis')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-8 py-3.5 rounded-xl shadow-lg transition duration-200 inline-flex items-center gap-2">
+                        <span>Siap Menguji Pemahaman? Buka Latihan Soal</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB CONTENT 2: LATIHAN SOAL (10 NOMOR PILIHAN GANDA) -->
+            <div id="studentTabKuis" class="hidden space-y-6">
+                <!-- Quiz Progress Bar Header -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-base">Latihan Soal Pancasila (10 Nomor)</h3>
+                        <p class="text-xs text-slate-500">Pilihlah satu jawaban yang paling tepat untuk setiap permasalahan.</p>
+                    </div>
+                    <div class="flex items-center gap-3 w-full sm:w-auto">
+                        <div class="text-xs font-semibold text-slate-600 whitespace-nowrap">
+                            Terjawab: <span id="answeredCountText" class="text-rose-600 font-bold">0</span>/10
+                        </div>
+                        <div class="w-full sm:w-36 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                            <div id="quizProgressBar" class="bg-rose-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Questions List Container -->
+                <form id="quizForm" onsubmit="app.handleQuizSubmit(event)" class="space-y-6">
+                    <div id="quizQuestionsContainer" class="space-y-6">
+                        <!-- Dynamic 10 Questions injected by JS -->
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 text-center shadow-sm">
+                        <p class="text-xs text-slate-500 mb-4">Pastikan Anda telah memeriksa semua jawaban sebelum mengumpulkan.</p>
+                        <button type="submit" id="btnSubmitQuiz" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-3.5 rounded-xl shadow-lg hover:shadow-emerald-600/25 transition duration-200 inline-flex items-center gap-2">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>Kirim & Simpan Jawaban Saya</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- TAB CONTENT 3: HASIL SAYA -->
+            <div id="studentTabHasil" class="hidden space-y-6">
+                <div id="studentResultContainer">
+                    <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center max-w-xl mx-auto my-6">
+                        <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400 text-2xl">
+                            <i class="fa-solid fa-clipboard-question"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800">Belum Ada Hasil Terdaftar</h3>
+                        <p class="text-xs text-slate-500 mt-1 mb-6">Silakan selesaikan 10 latihan soal pada tab **Latihan Soal** untuk melihat skor dan pembahasan rinci Anda.</p>
+                        <button onclick="app.switchStudentTab('kuis')" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition">
+                            Mulai Kerjakan Soal
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 4: TEACHER LOGIN MODAL / INTERFACE -->
+        <section id="viewTeacherLogin" class="hidden transition-all duration-300">
+            <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden my-12">
+                <div class="bg-slate-900 p-6 text-white text-center">
+                    <div class="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-500/30">
+                        <i class="fa-solid fa-lock text-xl"></i>
+                    </div>
+                    <h2 class="text-xl font-bold font-heading">Login Dashboard Guru</h2>
+                    <p class="text-xs text-slate-400 mt-1">Sistem Otentikasi Pengajar EduPancasila</p>
+                </div>
+
+                <form onsubmit="app.handleTeacherLogin(event)" class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                            Password Guru
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="teacherPasswordInput" required placeholder="Masukkan kata sandi..." 
+                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition">
+                            <button type="button" onclick="app.togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+                                <i class="fa-solid fa-eye" id="pwdToggleIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="teacherLoginError" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-600 text-xs font-medium">
+                        <i class="fa-solid fa-circle-exclamation mr-1.5"></i> Kata sandi salah! Gunakan sandi khusus yang diberikan.
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-xl shadow-lg transition duration-200 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-right-to-bracket"></i>
+                            <span>Masuk Ke Dashboard</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- VIEW 5: TEACHER DASHBOARD MAIN -->
+        <section id="viewTeacherDashboard" class="hidden space-y-6 transition-all duration-300">
+            <!-- Top Controls & Stats Header -->
+            <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-amber-500 text-slate-950 text-[10px] font-black uppercase px-2 py-0.5 rounded">
+                                Sesi Terautentikasi
+                            </span>
+                            <span class="text-xs text-slate-400">Password Verified</span>
+                        </div>
+                        <h2 class="text-2xl font-bold font-heading mt-1">Rekapitulasi Jawaban & Evaluasi Siswa</h2>
+                        <p class="text-xs text-slate-400">Pantau perkembangan hasil latihan soal Pancasila secara real-time berdasarkan kelas.</p>
+                    </div>
+
+                    <!-- Class Filter Buttons -->
+                    <div class="flex flex-wrap items-center gap-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
+                        <button onclick="app.filterTeacherClass('ALL')" id="filterBtnALL" class="teacher-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-amber-500 text-slate-950">
+                            Semua Kelas
+                        </button>
+                        <button onclick="app.filterTeacherClass('X.2')" id="filterBtnX2" class="teacher-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white">
+                            Kelas X.2
+                        </button>
+                        <button onclick="app.filterTeacherClass('X.3')" id="filterBtnX3" class="teacher-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white">
+                            Kelas X.3
+                        </button>
+                        <button onclick="app.filterTeacherClass('X.5')" id="filterBtnX5" class="teacher-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white">
+                            Kelas X.5
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Summary Cards Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+                        <span class="text-xs text-slate-400 block font-medium">Total Siswa Menjawab</span>
+                        <span id="statTotalStudents" class="text-2xl font-extrabold text-amber-400">0</span>
+                    </div>
+                    <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+                        <span class="text-xs text-slate-400 block font-medium">Rata-Rata Nilai</span>
+                        <span id="statAvgScore" class="text-2xl font-extrabold text-emerald-400">0.0</span>
+                    </div>
+                    <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+                        <span class="text-xs text-slate-400 block font-medium">Nilai Tertinggi</span>
+                        <span id="statMaxScore" class="text-2xl font-extrabold text-blue-400">0</span>
+                    </div>
+                    <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+                        <span class="text-xs text-slate-400 block font-medium">Filter Aktif</span>
+                        <span id="statActiveFilter" class="text-sm font-extrabold text-rose-400 mt-1 block">Semua Kelas</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Card & Search Controls -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50">
+                    <div class="relative w-full sm:w-72">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                            <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                        </span>
+                        <input type="text" id="teacherSearchInput" oninput="app.renderTeacherTable()" placeholder="Cari nama siswa..." 
+                            class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+
+                    <div class="text-xs text-slate-500 font-medium flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <span>Menampilkan: <strong id="currentTableCount" class="text-slate-800">0</strong> data</span>
+                    </div>
+                </div>
+
+                <!-- Submissions Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wider border-b border-slate-200">
+                                <th class="py-3 px-4">No</th>
+                                <th class="py-3 px-4">Nama Siswa</th>
+                                <th class="py-3 px-4">Kelas</th>
+                                <th class="py-3 px-4">Skor / Nilai</th>
+                                <th class="py-3 px-4">Status / Ket.</th>
+                                <th class="py-3 px-4">Waktu Mengirim</th>
+                                <th class="py-3 px-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teacherTableBody" class="divide-y divide-slate-200 text-xs text-slate-700">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="teacherTableEmpty" class="hidden p-12 text-center text-slate-400">
+                    <i class="fa-solid fa-folder-open text-4xl mb-3 block"></i>
+                    <p class="font-medium">Belum ada jawaban siswa terdaftar untuk filter ini.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL: STUDENT ANSWER DETAILS (TEACHER VIEW) -->
+    <div id="modalDetail" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+            <div class="bg-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
+                <div>
+                    <h3 class="font-bold text-base font-heading flex items-center gap-2">
+                        <i class="fa-solid fa-file-lines text-amber-400"></i> Detail Rincian Jawaban Siswa
+                    </h3>
+                    <p id="modalDetailSub" class="text-xs text-slate-400">Nama Siswa - Kelas X.2</p>
+                </div>
+                <button onclick="app.closeModal('modalDetail')" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div id="modalDetailBody" class="p-6 overflow-y-auto custom-scrollbar space-y-4">
+                <!-- Dynamically populated answer review -->
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200 text-right">
+                <button onclick="app.closeModal('modalDetail')" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition">
+                    Tutup Detail
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DELETE CONFIRMATION -->
+    <div id="modalDelete" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-center">
+            <div class="w-14 h-14 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <h3 class="font-bold text-slate-900 text-lg mb-1">Konfirmasi Hapus Jawaban</h3>
+            <p class="text-xs text-slate-500 mb-6">
+                Apakah Anda yakin ingin menghapus jawaban dari <strong id="deleteStudentNameTarget" class="text-slate-800">Siswa</strong>? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div class="flex items-center justify-center gap-3">
+                <button onclick="app.closeModal('modalDelete')" class="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition">
+                    Batal
+                </button>
+                <button id="btnConfirmDelete" class="w-1/2 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md transition">
+                    Ya, Hapus Data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: SWITCH ROLE SELECTION MODAL -->
+    <div id="modalRole" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-center">
+            <h3 class="font-bold text-slate-900 text-lg mb-2">Pilih Peran Pengguna</h3>
+            <p class="text-xs text-slate-500 mb-6">Pilih modul yang ingin Anda akses</p>
+            
+            <div class="space-y-3">
+                <button onclick="app.selectRole('siswa'); app.closeModal('modalRole');" class="w-full p-4 rounded-xl border border-slate-200 hover:border-rose-500 bg-slate-50 hover:bg-rose-50/50 text-left flex items-center justify-between group transition">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-user-graduate text-rose-600 text-xl"></i>
+                        <div>
+                            <div class="font-bold text-sm text-slate-800 group-hover:text-rose-600">Siswa / Peserta Didik</div>
+                            <div class="text-[11px] text-slate-500">Isi Nama, Kelas & Mengerjakan Soal</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-slate-400 group-hover:text-rose-600"></i>
+                </button>
+
+                <button onclick="app.selectRole('guru'); app.closeModal('modalRole');" class="w-full p-4 rounded-xl border border-slate-200 hover:border-amber-500 bg-slate-50 hover:bg-amber-50/50 text-left flex items-center justify-between group transition">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-chalkboard-user text-amber-600 text-xl"></i>
+                        <div>
+                            <div class="font-bold text-sm text-slate-800 group-hover:text-amber-600">Guru / Pengajar</div>
+                            <div class="text-[11px] text-slate-500">Login Pengajar & Kelola Hasil</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-slate-400 group-hover:text-amber-600"></i>
+                </button>
+            </div>
+
+            <button onclick="app.closeModal('modalRole')" class="mt-6 text-xs text-slate-400 hover:text-slate-600 font-medium">
+                Tutup
+            </button>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // 10 MULTIPLE CHOICE QUESTIONS BASED ON PANCASILA & SOCIETAL ISSUES
+        const QUIZ_QUESTIONS = [
+            {
+                id: 1,
+                question: "Fenomena maraknya perundungan siber (cyberbullying) dan ujaran kebencian berunsur SARA di media sosial sering kali merusak rasa kebersamaan. Sila Pancasila mana yang paling tepat menjadi landasan untuk mengatasi ancaman perpecahan tersebut?",
+                options: [
+                    "Sila ke-1: Ketuhanan Yang Maha Esa",
+                    "Sila ke-2: Kemanusiaan yang Adil dan Beradab",
+                    "Sila ke-3: Persatuan Indonesia",
+                    "Sila ke-4: Kerakyatan yang Dipimpin oleh Hikmat Kebijaksanaan..."
+                ],
+                correctAnswer: 2, // Index 2
+                explanation: "Sila ke-3 (Persatuan Indonesia) mengedepankan asas menjaga keutuhan, persatuan, dan mencegah disintegrasi bangsa akibat konflik atau kebencian."
+            },
+            {
+                id: 2,
+                question: "Dalam sebuah musyawarah warga desa terkait rencana pembangunan jalan umum, terdapat perbedaan pendapat yang sengit. Manakah tindakan yang paling mencerminkan penerapan nilai Sila ke-4 Pancasila?",
+                options: [
+                    "Memutuskan perkara berdasarkan suara terbanyak tanpa mendengarkan kubu minoritas",
+                    "Mengutamakan musyawarah mufakat dengan saling menghargai pendapat demi kepentingan bersama",
+                    "Meninggalkan ruang musyawarah karena pendapat pribadi tidak disetujui",
+                    "Menyerahkan keputusan sepenuhnya kepada pihak berkonflik tanpa keterlibatan warga"
+                ],
+                correctAnswer: 1,
+                explanation: "Sila ke-4 menekankan pentingnya musyawarah untuk mufakat dengan dilandasi semangat kekeluargaan dan menghargai keberagaman pandangan."
+            },
+            {
+                id: 3,
+                question: "Terjadi kasus diskriminasi pelayanan fasilitas kesehatan di sebuah daerah, di mana pasien kurang mampu mendapatkan perlakuan yang lambat dibanding pasien mampu. Hal ini sangat bertentangan dengan prinsip Pancasila khususnya...",
+                options: [
+                    "Sila ke-1",
+                    "Sila ke-2",
+                    "Sila ke-4",
+                    "Sila ke-5"
+                ],
+                correctAnswer: 3,
+                explanation: "Sila ke-5 (Keadilan Sosial bagi Seluruh Rakyat Indonesia) menegaskan pemenuhan hak yang adil dan merata bagi seluruh lapisan masyarakat tanpa diskriminasi."
+            },
+            {
+                id: 4,
+                question: "Di sebuah lingkungan perumahan, warga dari agama yang berbeda saling membantu mengamankan lokasi saat perayaan hari besar keagamaan. Sikap toleransi ini merupakan perwujudan konkret dari Sila...",
+                options: [
+                    "Sila ke-1 dan Sila ke-3",
+                    "Sila ke-2 dan Sila ke-4",
+                    "Sila ke-3 dan Sila ke-5",
+                    "Sila ke-1 dan Sila ke-5"
+                ],
+                correctAnswer: 0,
+                explanation: "Menghormati kebebasan beragama merupakan esensi Sila ke-1, sedangkan kebersamaan dan gotong royong antar pemeluk agama menguatkan Sila ke-3 (Persatuan)."
+            },
+            {
+                id: 5,
+                question: "Aksi main hakim sendiri (vigilantisme) terhadap terduga pelaku kejahatan di jalanan tanpa melalui proses hukum yang sah melanggar nilai-nilai Pancasila yaitu...",
+                options: [
+                    "Menghilangkan asas kemanusiaan yang beradab dan supremasi hukum yang adil (Sila ke-2)",
+                    "Mengabaikan prinsip kebebasan berpendapat (Sila ke-4)",
+                    "Merusak asas kebebasan beragama (Sila ke-1)",
+                    "Mengurangi anggaran pembangunan nasional (Sila ke-5)"
+                ],
+                correctAnswer: 0,
+                explanation: "Main hakim sendiri melanggar Sila ke-2 karena memperlakukan manusia secara tidak beradab dan mengabaikan proses hukum yang adil (due process of law)."
+            },
+            {
+                id: 6,
+                question: "Maraknya budaya korupsi dan penyalahgunaan wewenang pejabat publik merugikan keuangan negara dan hak masyarakat miskin. Solusi fundamental Pancasila dalam menangani korupsi adalah penguatan moralitas berdasarkan Sila ke-1 serta penegakan keadilan berdasarkan...",
+                options: [
+                    "Sila ke-2 dan Sila ke-5",
+                    "Sila ke-3 saja",
+                    "Sila ke-4 saja",
+                    "Sila ke-1 saja"
+                ],
+                correctAnswer: 0,
+                explanation: "Korupsi mencederai nilai kemanusiaan (Sila 2) dan merampas keadilan sosial rakyat (Sila 5), sehingga penyelesaiannya membutuhkan komitmen moral dan hukum adil."
+            },
+            {
+                id: 7,
+                question: "Kebijakan penataan pasar tradisional dilakukan secara mendadak tanpa sosialisasi dan dialog dengan para pedagang kecil. Langkah korektif yang berlandaskan Pancasila Sila ke-4 adalah...",
+                options: [
+                    "Membatalkan seluruh rencana pembangunan secara permanen tanpa pertimbangan",
+                    "Membuka dialog dan musyawarah partisipatif antara pemerintah daerah dan perwakilan pedagang",
+                    "Meneruskan penggusuran dengan pengawalan ketat aparat",
+                    "Menyerahkan seluruh pengelolaan pasar ke pengusaha asing"
+                ],
+                correctAnswer: 1,
+                explanation: "Sila ke-4 mengamanatkan bahwa setiap kebijakan publik yang menyangkut hajat hidup orang banyak harus melalui dialog dan musyawarah yang inklusif."
+            },
+            {
+                id: 8,
+                question: "Kesenjangan kualitas sarana pendidikan antara daerah perkotaan besar dan daerah 3T (Tertinggal, Terdepan, dan Terluar) merupakan tantangan nasional. Nilai Pancasila yang mendesak untuk diimplementasikan pemerintah adalah...",
+                options: [
+                    "Pemerataan fasilitas dan anggaran pendidikan secara adil (Sila ke-5)",
+                    "Pengutamaan persaingan bebas antar sekolah (Sila ke-3)",
+                    "Pembatasan jumlah sekolah di daerah perkotaan (Sila ke-2)",
+                    "Menyerahkan pendidikan sepenuhnya pada donatur swasta (Sila ke-1)"
+                ],
+                correctAnswer: 0,
+                explanation: "Pemerataan akses pendidikan berkualitas di seluruh wilayah Indonesia adalah amanat Sila ke-5 untuk mewujudkan keadilan sosial."
+            },
+            {
+                id: 9,
+                question: "Seorang pelajar dengan sengaja menyebarkan berita bohong (hoaks) di grup kelas yang menuduh rekannya melakukan pencurian tanpa bukti. Tindakan pelajar tersebut mencederai Pancasila karena...",
+                options: [
+                    "Merusak nama baik sesama (melanggar Sila 2) dan memicu permusuhan (melanggar Sila 3)",
+                    "Melanggar tata tertib lalu lintas secara langsung",
+                    "Menolak melakukan ibadah bersama di sekolah",
+                    "Mengurangi pendapatan ekonomi keluarga"
+                ],
+                correctAnswer: 0,
+                explanation: "Memfitnah merenggut kehormatan manusia (Sila ke-2) dan memicu perpecahan/keretakan persaudaraan (Sila ke-3)."
+            },
+            {
+                id: 10,
+                question: "Dalam menyelesaikan konflik sengketa lahan adat, para tokoh masyarakat memilih jalan mediasi kekeluargaan daripada kekerasan. Pendekatan ini merupakan manifestasi perpaduan Sila...",
+                options: [
+                    "Sila ke-1 dan Sila ke-2",
+                    "Sila ke-3 (Persatuan) dan Sila ke-4 (Musyawarah)",
+                    "Sila ke-2 dan Sila ke-1",
+                    "Sila ke-5 dan Sila ke-1"
+                ],
+                correctAnswer: 1,
+                explanation: "Mediasi damai mencerminkan prinsip musyawarah (Sila 4) yang bertujuan untuk menjaga kerukunan dan persatuan (Sila 3)."
+            }
+        ];
+
+        class App {
+            constructor() {
+                this.student = {
+                    name: '',
+                    class: '',
+                    answers: {},
+                    score: null,
+                    submittedAt: null
+                };
+                this.teacherAuthenticated = false;
+                this.teacherActiveFilter = 'ALL';
+                this.submissions = [];
+                this.deleteTargetId = null;
+
+                this.initStore();
+            }
+
+            initStore() {
+                // Load local student session if available
+                const savedStudent = localStorage.getItem('pancasila_student');
+                if (savedStudent) {
+                    try {
+                        this.student = JSON.parse(savedStudent);
+                        this.updateStudentHeader();
+                    } catch(e){}
+                }
+
+                // Load initial sample data if empty
+                const savedSubmissions = localStorage.getItem('pancasila_submissions');
+                if (savedSubmissions) {
+                    try {
+                        this.submissions = JSON.parse(savedSubmissions);
+                    } catch(e){}
+                } else {
+                    // Pre-populate with realistic mock student data for demo
+                    this.submissions = [
+                        {
+                            id: 'sub-101',
+                            studentName: 'Bintang Pratama',
+                            studentClass: 'X.2',
+                            score: 90,
+                            correctCount: 9,
+                            answers: {1:2, 2:1, 3:3, 4:0, 5:0, 6:0, 7:1, 8:0, 9:0, 10:1},
+                            submittedAt: new Date(Date.now() - 3600000 * 2).toISOString()
+                        },
+                        {
+                            id: 'sub-102',
+                            studentName: 'Siti Nurhaliza',
+                            studentClass: 'X.3',
+                            score: 100,
+                            correctCount: 10,
+                            answers: {1:2, 2:1, 3:3, 4:0, 5:0, 6:0, 7:1, 8:0, 9:0, 10:1},
+                            submittedAt: new Date(Date.now() - 3600000 * 5).toISOString()
+                        },
+                        {
+                            id: 'sub-103',
+                            studentName: 'Dewi Anggraini',
+                            studentClass: 'X.5',
+                            score: 70,
+                            correctCount: 7,
+                            answers: {1:2, 2:0, 3:3, 4:0, 5:1, 6:0, 7:1, 8:2, 9:0, 10:1},
+                            submittedAt: new Date(Date.now() - 3600000 * 12).toISOString()
+                        }
+                    ];
+                    this.saveSubmissionsLocal();
+                }
+            }
+
+            saveSubmissionsLocal() {
+                localStorage.setItem('pancasila_submissions', JSON.stringify(this.submissions));
+            }
+
+            setupFirebaseSync() {
+                if (window.firebaseApp && window.firebaseApp.db) {
+                    const db = window.firebaseApp.db;
+                    const appId = window.firebaseApp.appId;
+                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'student_submissions');
+
+                    window.initTeacherListener = () => {
+                        onSnapshot(colRef, (snapshot) => {
+                            const remoteList = [];
+                            snapshot.forEach(doc => {
+                                remoteList.push({ id: doc.id, ...doc.data() });
+                            });
+                            if (remoteList.length > 0) {
+                                this.submissions = remoteList;
+                                this.saveSubmissionsLocal();
+                                if (this.teacherAuthenticated) {
+                                    this.renderTeacherTable();
+                                }
+                            }
+                        }, (error) => {
+                            console.warn("Firestore snapshot error, using local state:", error);
+                        });
+                    };
+
+                    if (window.firebaseApp.getCurrentUser()) {
+                        window.initTeacherListener();
+                    }
+                }
+            }
+
+            navigateTo(viewId) {
+                const views = ['viewRoleSelection', 'viewStudentRegister', 'viewStudentDashboard', 'viewTeacherLogin', 'viewTeacherDashboard'];
+                views.forEach(v => {
+                    const el = document.getElementById(v);
+                    if (el) el.classList.add('hidden');
+                });
+
+                const target = document.getElementById(viewId);
+                if (target) target.classList.remove('hidden');
+
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            showRoleModal() {
+                document.getElementById('modalRole').classList.remove('hidden');
+            }
+
+            closeModal(modalId) {
+                document.getElementById(modalId).classList.add('hidden');
+            }
+
+            selectRole(role) {
+                if (role === 'siswa') {
+                    if (this.student.name && this.student.class) {
+                        this.updateStudentHeader();
+                        this.navigateTo('viewStudentDashboard');
+                        this.renderQuizQuestions();
+                        this.renderStudentResultTab();
+                    } else {
+                        this.navigateTo('viewStudentRegister');
+                    }
+                } else if (role === 'guru') {
+                    if (this.teacherAuthenticated) {
+                        this.navigateTo('viewTeacherDashboard');
+                        this.renderTeacherTable();
+                    } else {
+                        this.navigateTo('viewTeacherLogin');
+                    }
+                }
+            }
+
+            handleStudentSubmit(e) {
+                e.preventDefault();
+                const name = document.getElementById('inputStudentName').value.trim();
+                const classRadio = document.querySelector('input[name="studentClass"]:checked');
+
+                if (!name || !classRadio) {
+                    this.showToast('Mohon lengkapi Nama dan Pilihan Kelas!', 'warning');
+                    return;
+                }
+
+                this.student.name = name;
+                this.student.class = classRadio.value;
+                localStorage.setItem('pancasila_student', JSON.stringify(this.student));
+
+                this.updateStudentHeader();
+                this.navigateTo('viewStudentDashboard');
+                this.renderQuizQuestions();
+                this.renderStudentResultTab();
+                this.showToast(`Selamat datang, ${name} (${classRadio.value})!`, 'success');
+            }
+
+            updateStudentHeader() {
+                const badge = document.getElementById('studentHeaderBadge');
+                const badgeName = document.getElementById('badgeStudentName');
+                const badgeClass = document.getElementById('badgeStudentClass');
+
+                if (this.student.name && this.student.class) {
+                    badgeName.textContent = this.student.name;
+                    badgeClass.textContent = this.student.class;
+                    badge.classList.remove('hidden');
+                    badge.classList.add('flex');
+                } else {
+                    badge.classList.add('hidden');
+                    badge.classList.remove('flex');
+                }
+            }
+
+            resetStudentSession() {
+                this.student = { name: '', class: '', answers: {}, score: null, submittedAt: null };
+                localStorage.removeItem('pancasila_student');
+                this.updateStudentHeader();
+                this.navigateTo('viewStudentRegister');
+                this.showToast('Sesi siswa diset ulang.', 'info');
+            }
+
+            switchStudentTab(tab) {
+                ['Materi', 'Kuis', 'Hasil'].forEach(t => {
+                    const btn = document.getElementById(`tabBtn${t}`);
+                    const content = document.getElementById(`studentTab${t}`);
+                    if (btn && content) {
+                        if (t.toLowerCase() === tab) {
+                            btn.className = "student-tab-btn active px-4 py-2.5 text-sm font-bold border-b-2 border-rose-600 text-rose-600 flex items-center gap-2 whitespace-nowrap";
+                            content.classList.remove('hidden');
+                        } else {
+                            btn.className = "student-tab-btn px-4 py-2.5 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap";
+                            content.classList.add('hidden');
+                        }
+                    }
+                });
+            }
+
+            renderQuizQuestions() {
+                const container = document.getElementById('quizQuestionsContainer');
+                if (!container) return;
+
+                container.innerHTML = QUIZ_QUESTIONS.map((q, qIndex) => {
+                    const selectedAns = this.student.answers[q.id];
+                    return `
+                        <div class="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm hover:border-slate-300 transition">
+                            <div class="flex items-start gap-3 mb-4">
+                                <span class="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 font-bold flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                                    ${qIndex + 1}
+                                </span>
+                                <div>
+                                    <h4 class="font-bold text-slate-900 text-sm sm:text-base leading-snug">${q.question}</h4>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2.5 ml-0 sm:ml-10">
+                                ${q.options.map((opt, optIndex) => {
+                                    const isChecked = selectedAns === optIndex ? 'checked' : '';
+                                    return `
+                                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/30 cursor-pointer transition text-xs sm:text-sm">
+                                            <input type="radio" name="q_${q.id}" value="${optIndex}" ${isChecked} 
+                                                onchange="app.updateQuizProgress(${q.id}, ${optIndex})" 
+                                                class="w-4 h-4 text-rose-600 focus:ring-rose-500">
+                                            <span class="text-slate-700 font-medium">${opt}</span>
+                                        </label>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                this.updateProgressIndicator();
+            }
+
+            updateQuizProgress(qId, val) {
+                this.student.answers[qId] = parseInt(val);
+                this.updateProgressIndicator();
+            }
+
+            updateProgressIndicator() {
+                const answeredCount = Object.keys(this.student.answers).length;
+                const countText = document.getElementById('answeredCountText');
+                const bar = document.getElementById('quizProgressBar');
+
+                if (countText) countText.textContent = answeredCount;
+                if (bar) bar.style.width = `${(answeredCount / 10) * 100}%`;
+            }
+
+            async handleQuizSubmit(e) {
+                e.preventDefault();
+                const answeredCount = Object.keys(this.student.answers).length;
+
+                if (answeredCount < 10) {
+                    this.showToast(`Anda baru menjawab ${answeredCount} dari 10 soal! Lengkapi semua soal.`, 'warning');
+                    return;
+                }
+
+                // Calculate Score
+                let correct = 0;
+                QUIZ_QUESTIONS.forEach(q => {
+                    if (this.student.answers[q.id] === q.correctAnswer) {
+                        correct++;
+                    }
+                });
+
+                const score = correct * 10;
+                const submittedAt = new Date().toISOString();
+
+                this.student.score = score;
+                this.student.correctCount = correct;
+                this.student.submittedAt = submittedAt;
+                localStorage.setItem('pancasila_student', JSON.stringify(this.student));
+
+                // Submit to Submission Array & Local Storage
+                const subObj = {
+                    id: 'sub-' + Date.now(),
+                    studentName: this.student.name,
+                    studentClass: this.student.class,
+                    score: score,
+                    correctCount: correct,
+                    answers: this.student.answers,
+                    submittedAt: submittedAt
+                };
+
+                // Check if already submitted by this student name & class, replace or push
+                const existingIdx = this.submissions.findIndex(s => s.studentName.toLowerCase() === this.student.name.toLowerCase() && s.studentClass === this.student.class);
+                if (existingIdx >= 0) {
+                    this.submissions[existingIdx] = subObj;
+                } else {
+                    this.submissions.unshift(subObj);
+                }
+                this.saveSubmissionsLocal();
+
+                // Firestore Sync
+                if (window.firebaseApp && window.firebaseApp.db) {
+                    try {
+                        const db = window.firebaseApp.db;
+                        const appId = window.firebaseApp.appId;
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'student_submissions', subObj.id);
+                        await setDoc(docRef, subObj);
+                    } catch(err) {
+                        console.warn("Firestore setDoc failed, saved locally", err);
+                    }
+                }
+
+                this.showToast('Jawaban berhasil dikirim dan tersimpan!', 'success');
+                this.renderStudentResultTab();
+                this.switchStudentTab('hasil');
+            }
+
+            renderStudentResultTab() {
+                const container = document.getElementById('studentResultContainer');
+                if (!container) return;
+
+                if (this.student.score === null) {
+                    container.innerHTML = `
+                        <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center max-w-xl mx-auto my-6">
+                            <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400 text-2xl">
+                                <i class="fa-solid fa-clipboard-question"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-800">Belum Ada Hasil Terdaftar</h3>
+                            <p class="text-xs text-slate-500 mt-1 mb-6">Silakan selesaikan 10 latihan soal pada tab **Latihan Soal** untuk melihat skor dan pembahasan rinci Anda.</p>
+                            <button onclick="app.switchStudentTab('kuis')" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition">
+                                Mulai Kerjakan Soal
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const score = this.student.score;
+                const correct = this.student.correctCount;
+                let gradeBadge = score >= 80 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : (score >= 60 ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-rose-100 text-rose-800 border-rose-300');
+                let gradeMsg = score >= 80 ? 'Sangat Baik! Pemahaman Sila Pancasila Sangat Matang.' : (score >= 60 ? 'Baik! Cukup Memahami Landasan Pancasila.' : 'Perlu Belajar Lagi! Pelajari Kembali Materi Pembelajaran.');
+
+                container.innerHTML = `
+                    <div class="space-y-6">
+                        <!-- Score Hero Card -->
+                        <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm text-center max-w-2xl mx-auto">
+                            <span class="inline-block px-3 py-1 rounded-full text-xs font-bold border ${gradeBadge} mb-3">
+                                ${gradeMsg}
+                            </span>
+                            <h3 class="text-xs uppercase font-bold text-slate-400 tracking-wider">Hasil Latihan Soal Pancasila</h3>
+                            <div class="text-5xl sm:text-6xl font-black text-slate-900 my-3 font-heading">
+                                ${score}<span class="text-lg text-slate-400 font-normal">/100</span>
+                            </div>
+                            <p class="text-xs text-slate-600 mb-6">
+                                Terjawab Benar: <strong class="text-emerald-600">${correct}</strong> | Salah: <strong class="text-rose-600">${10 - correct}</strong>
+                            </p>
+                            <button onclick="app.switchStudentTab('kuis')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition inline-flex items-center gap-2">
+                                <i class="fa-solid fa-rotate-left"></i> Coba Lagi / Perbaiki Jawaban
+                            </button>
+                        </div>
+
+                        <!-- Question Review Breakdown -->
+                        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+                            <h4 class="font-bold text-slate-900 text-base mb-4 flex items-center gap-2">
+                                <i class="fa-solid fa-list-check text-rose-600"></i>
+                                Pembahasan Dan Review Jawaban
+                            </h4>
+                            <div class="space-y-4">
+                                ${QUIZ_QUESTIONS.map((q, idx) => {
+                                    const userAns = this.student.answers[q.id];
+                                    const isCorrect = userAns === q.correctAnswer;
+                                    return `
+                                        <div class="p-4 rounded-xl border ${isCorrect ? 'border-emerald-200 bg-emerald-50/30' : 'border-rose-200 bg-rose-50/30'} text-xs">
+                                            <div class="flex items-start justify-between gap-2 mb-2">
+                                                <span class="font-bold text-slate-900">${idx + 1}. ${q.question}</span>
+                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isCorrect ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-800'} flex-shrink-0">
+                                                    ${isCorrect ? 'BENAR' : 'SALAH'}
+                                                </span>
+                                            </div>
+                                            <p class="text-slate-600 mb-1">
+                                                Jawaban Anda: <strong class="${isCorrect ? 'text-emerald-700' : 'text-rose-700'}">${q.options[userAns]}</strong>
+                                            </p>
+                                            ${!isCorrect ? `<p class="text-emerald-800 font-semibold mb-1">Jawaban Tepat: ${q.options[q.correctAnswer]}</p>` : ''}
+                                            <div class="bg-white/80 p-2.5 rounded-lg border border-slate-200 text-[11px] text-slate-600 mt-2">
+                                                <span class="font-bold text-slate-700">💡 Pembahasan:</span> ${q.explanation}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            handleTeacherLogin(e) {
+                e.preventDefault();
+                const pwdInput = document.getElementById('teacherPasswordInput');
+                const errBox = document.getElementById('teacherLoginError');
+                const pwd = pwdInput.value;
+
+                if (pwd === 'Nunu1234') {
+                    this.teacherAuthenticated = true;
+                    errBox.classList.add('hidden');
+                    pwdInput.value = '';
+
+                    document.getElementById('teacherHeaderBadge').classList.remove('hidden');
+                    document.getElementById('teacherHeaderBadge').classList.add('flex');
+
+                    this.navigateTo('viewTeacherDashboard');
+                    this.renderTeacherTable();
+                    this.showToast('Login Guru Berhasil!', 'success');
+                } else {
+                    errBox.classList.remove('hidden');
+                    this.showToast('Password guru salah! Silakan periksa kembali kata sandi Anda.', 'error');
+                }
+            }
+
+            togglePasswordVisibility() {
+                const input = document.getElementById('teacherPasswordInput');
+                const icon = document.getElementById('pwdToggleIcon');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.classList.replace('fa-eye', 'fa-eye-slash');
+                } else {
+                    input.type = 'password';
+                    icon.classList.replace('fa-eye-slash', 'fa-eye');
+                }
+            }
+
+            logoutTeacher() {
+                this.teacherAuthenticated = false;
+                document.getElementById('teacherHeaderBadge').classList.add('hidden');
+                document.getElementById('teacherHeaderBadge').classList.remove('flex');
+                this.navigateTo('viewRoleSelection');
+                this.showToast('Telah keluar dari mode Guru.', 'info');
+            }
+
+            filterTeacherClass(cls) {
+                this.teacherActiveFilter = cls;
+                
+                ['ALL', 'X2', 'X3', 'X5'].forEach(c => {
+                    const btn = document.getElementById(`filterBtn${c}`);
+                    if (btn) {
+                        if ((c === 'ALL' && cls === 'ALL') || (c === 'X2' && cls === 'X.2') || (c === 'X3' && cls === 'X.3') || (c === 'X5' && cls === 'X.5')) {
+                            btn.className = "teacher-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition bg-amber-500 text-slate-950";
+                        } else {
+                            btn.className = "teacher-filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white";
+                        }
+                    }
+                });
+
+                this.renderTeacherTable();
+            }
+
+            renderTeacherTable() {
+                const tbody = document.getElementById('teacherTableBody');
+                const emptyState = document.getElementById('teacherTableEmpty');
+                const searchVal = (document.getElementById('teacherSearchInput')?.value || '').toLowerCase().trim();
+
+                let filtered = this.submissions.filter(sub => {
+                    const matchClass = this.teacherActiveFilter === 'ALL' || sub.studentClass === this.teacherActiveFilter;
+                    const matchSearch = sub.studentName.toLowerCase().includes(searchVal);
+                    return matchClass && matchSearch;
+                });
+
+                // Update Stats
+                document.getElementById('statTotalStudents').textContent = filtered.length;
+                const avg = filtered.length ? (filtered.reduce((acc, s) => acc + s.score, 0) / filtered.length).toFixed(1) : '0.0';
+                document.getElementById('statAvgScore').textContent = avg;
+                const max = filtered.length ? Math.max(...filtered.map(s => s.score)) : 0;
+                document.getElementById('statMaxScore').textContent = max;
+                document.getElementById('statActiveFilter').textContent = this.teacherActiveFilter === 'ALL' ? 'Semua Kelas' : `Kelas ${this.teacherActiveFilter}`;
+                document.getElementById('currentTableCount').textContent = filtered.length;
+
+                if (filtered.length === 0) {
+                    tbody.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                    return;
+                }
+
+                emptyState.classList.add('hidden');
+
+                tbody.innerHTML = filtered.map((sub, index) => {
+                    const dateStr = sub.submittedAt ? new Date(sub.submittedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
+                    const statusBadge = sub.score >= 80 
+                        ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Sangat Baik</span>' 
+                        : (sub.score >= 60 
+                            ? '<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Cukup</span>' 
+                            : '<span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Kurang</span>');
+
+                    return `
+                        <tr class="hover:bg-slate-50/80 transition">
+                            <td class="py-3 px-4 font-semibold text-slate-400">${index + 1}</td>
+                            <td class="py-3 px-4 font-bold text-slate-900">${sub.studentName}</td>
+                            <td class="py-3 px-4">
+                                <span class="bg-slate-200 text-slate-800 text-[11px] font-bold px-2.5 py-0.5 rounded-md">
+                                    ${sub.studentClass}
+                                </span>
+                            </td>
+                            <td class="py-3 px-4 font-extrabold text-slate-900 text-sm">
+                                ${sub.score} <span class="text-[10px] font-normal text-slate-400">/ 100</span>
+                            </td>
+                            <td class="py-3 px-4">${statusBadge}</td>
+                            <td class="py-3 px-4 text-slate-500 text-[11px]">${dateStr}</td>
+                            <td class="py-3 px-4 text-center space-x-1">
+                                <button onclick="app.showDetailModal('${sub.id}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-lg transition" title="Lihat Rincian">
+                                    <i class="fa-solid fa-eye"></i> Detail
+                                </button>
+                                <button onclick="app.confirmDeleteSubmission('${sub.id}', '${sub.studentName.replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-[11px] rounded-lg transition" title="Hapus Jawaban">
+                                    <i class="fa-solid fa-trash-can"></i> Hapus
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            showDetailModal(subId) {
+                const sub = this.submissions.find(s => s.id === subId);
+                if (!sub) return;
+
+                document.getElementById('modalDetailSub').textContent = `${sub.studentName} — Kelas ${sub.studentClass} (Skor: ${sub.score}/100)`;
+                const body = document.getElementById('modalDetailBody');
+
+                body.innerHTML = QUIZ_QUESTIONS.map((q, idx) => {
+                    const userAns = sub.answers ? sub.answers[q.id] : undefined;
+                    const isCorrect = userAns === q.correctAnswer;
+                    return `
+                        <div class="p-3 rounded-xl border ${isCorrect ? 'border-emerald-200 bg-emerald-50/40' : 'border-rose-200 bg-rose-50/40'} text-xs">
+                            <div class="flex items-start justify-between gap-2 mb-1">
+                                <span class="font-bold text-slate-800">${idx + 1}. ${q.question}</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isCorrect ? 'bg-emerald-200 text-emerald-800' : 'bg-rose-200 text-rose-800'}">
+                                    ${isCorrect ? 'BENAR' : 'SALAH'}
+                                </span>
+                            </div>
+                            <p class="text-slate-600">
+                                Jawaban Siswa: <strong class="${isCorrect ? 'text-emerald-700' : 'text-rose-700'}">${userAns !== undefined ? q.options[userAns] : 'Tidak dijawab'}</strong>
+                            </p>
+                            ${!isCorrect ? `<p class="text-emerald-800 font-semibold mt-0.5">Kunci Jawaban: ${q.options[q.correctAnswer]}</p>` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                document.getElementById('modalDetail').classList.remove('hidden');
+            }
+
+            confirmDeleteSubmission(subId, name) {
+                this.deleteTargetId = subId;
+                document.getElementById('deleteStudentNameTarget').textContent = name;
+                const confirmBtn = document.getElementById('btnConfirmDelete');
+                confirmBtn.onclick = () => this.executeDeleteSubmission();
+                document.getElementById('modalDelete').classList.remove('hidden');
+            }
+
+            async executeDeleteSubmission() {
+                if (!this.deleteTargetId) return;
+
+                const subId = this.deleteTargetId;
+                this.submissions = this.submissions.filter(s => s.id !== subId);
+                this.saveSubmissionsLocal();
+
+                // Firestore sync delete
+                if (window.firebaseApp && window.firebaseApp.db) {
+                    try {
+                        const db = window.firebaseApp.db;
+                        const appId = window.firebaseApp.appId;
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'student_submissions', subId);
+                        await deleteDoc(docRef);
+                    } catch(e) {
+                        console.warn("Firestore delete failed, updated locally", e);
+                    }
+                }
+
+                this.closeModal('modalDelete');
+                this.renderTeacherTable();
+                this.showToast('Data jawaban siswa berhasil dihapus.', 'info');
+            }
+
+            showToast(message, type = 'info') {
+                const container = document.getElementById('toastContainer');
+                if (!container) return;
+
+                const toast = document.createElement('div');
+                let bg = 'bg-slate-900 text-white';
+                let icon = 'fa-circle-info';
+
+                if (type === 'success') {
+                    bg = 'bg-emerald-600 text-white';
+                    icon = 'fa-circle-check';
+                } else if (type === 'warning') {
+                    bg = 'bg-amber-500 text-slate-950 font-semibold';
+                    icon = 'fa-triangle-exclamation';
+                } else if (type === 'error') {
+                    bg = 'bg-rose-600 text-white';
+                    icon = 'fa-circle-xmark';
+                }
+
+                toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-xl text-xs transition-all duration-300 transform translate-y-2 opacity-0 ${bg}`;
+                toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+
+                container.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.classList.remove('translate-y-2', 'opacity-0');
+                }, 10);
+
+                setTimeout(() => {
+                    toast.classList.add('opacity-0', 'translate-y-2');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3500);
+            }
+        }
+
+        // Initialize Global App Instance
+        window.app = new App();
+
+        window.onload = function() {
+            window.app.setupFirebaseSync();
+        };
+    </script>
+</body>
+</html>
